@@ -1,0 +1,45 @@
+{
+"smartlink": "https://www.your-smartlink-here.com",
+"telegram": [
+{ "name": "Main Channel", "link": "https://t.me/yourchanel", "icon": "send" },
+{ "name": "Backup Group", "link": "https://t.me/yourbackup", "icon": "shield" }
+],
+"vault": [
+{
+"id": 1,
+"title": "Euphoria - Episode 01",
+"thumb": "https://placehold.co/400x600/f4f4f5/999?text=EP+01",
+"video": "https://hstorage.xyz/files/S/seifuku-wa-kita-mama-de/seifuku-wa-kita-mama-de-1_1080p.mp4"
+},
+{
+"id": 2,
+"title": "Summer Memories OVA",
+"thumb": "https://placehold.co/400x600/f4f4f5/999?text=EP+02",
+"video": "https://hstorage.xyz/files/S/seifuku-wa-kita-mama-de/seifuku-wa-kita-mama-de-1_720p.mp4"
+},
+{
+"id": 3,
+"title": "Resort Boin Full",
+"thumb": "https://placehold.co/400x600/f4f4f5/999?text=EP+03",
+"video": "https://vjs.zencdn.net/v/oceans.mp4"
+},
+{
+"id": 4,
+"title": "Overflow Episode 08",
+"thumb": "https://placehold.co/400x600/f4f4f5/999?text=EP+04",
+"video": "https://vjs.zencdn.net/v/oceans.mp4"
+},
+{
+"id": 5,
+"title": "Mankitsu Happening",
+"thumb": "https://placehold.co/400x600/f4f4f5/999?text=EP+05",
+"video": "https://vjs.zencdn.net/v/oceans.mp4"
+},
+{
+"id": 6,
+"title": "Boku no Pico (Classic)",
+"thumb": "https://placehold.co/400x600/f4f4f5/999?text=EP+06",
+"video": "https://vjs.zencdn.net/v/oceans.mp4"
+}
+]
+}
