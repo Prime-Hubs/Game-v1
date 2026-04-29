@@ -1,569 +1,242 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- Playables SDK -->
-<script>// Playables SDK v1.0.0
-// Game lifecycle bridge: rAF-based game-ready detection + event communication
-(function() {
-  'use strict';
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HanimeFlow | Private Vault</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
+    <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
 
-  // Idempotency: skip if already initialized (e.g., server-side injection
-  // followed by client-side inject-javascript via the Bloks webview component).
-  if (window.playablesSDK) return;
-
-  var HANDLER_NAME = 'playablesGameEventHandler';
-  var ANDROID_BRIDGE_NAME = '_MetaPlayablesBridge';
-  var RAF_FRAME_THRESHOLD = 3;
-
-  var gameReadySent = false;
-  var firstInteractionSent = false;
-  var errorSent = false;
-  var frameCount = 0;
-  var originalRAF = window.requestAnimationFrame;
-
-  // --- Transport Layer ---
-
-  function hasIOSBridge() {
-    return !!(window.webkit &&
-              window.webkit.messageHandlers &&
-              window.webkit.messageHandlers[HANDLER_NAME]);
-  }
-
-  function hasAndroidBridge() {
-    return !!(window[ANDROID_BRIDGE_NAME] &&
-              typeof window[ANDROID_BRIDGE_NAME].postEvent === 'function');
-  }
-
-  function isInIframe() {
-    return !!(window.parent && window.parent !== window);
-  }
-
-  function sendEvent(eventName, payload) {
-    var message = {
-      type: eventName,
-      payload: payload || {},
-      timestamp: Date.now()
-    };
-
-    if (hasIOSBridge()) {
-      try {
-        window.webkit.messageHandlers[HANDLER_NAME].postMessage(message);
-      } catch (e) { /* ignore */ }
-      return;
-    }
-
-    if (hasAndroidBridge()) {
-    try {
-      var p = payload || {};
-      p.__secureToken = window.__fbAndroidBridgeAuthToken || '';
-      window[ANDROID_BRIDGE_NAME].postEvent(
-        eventName,
-        JSON.stringify(p)
-      );
-    } catch (e) { /* ignore */ }
-    return;
-  }
-
-    if (isInIframe()) {
-      try {
-        window.parent.postMessage(message, '*');
-      } catch (e) { /* ignore */ }
-      return;
-    }
-  }
-
-  // --- rAF Game-Ready Detection ---
-
-  function onFrame() {
-    if (gameReadySent) return;
-
-    frameCount++;
-    if (frameCount >= RAF_FRAME_THRESHOLD) {
-      gameReadySent = true;
-      sendEvent('game_ready', {
-        frame_count: frameCount,
-        detected_at: Date.now()
-      });
-      return;
-    }
-
-    originalRAF.call(window, onFrame);
-  }
-
-  if (originalRAF) {
-    window.requestAnimationFrame = function(callback) {
-      if (!gameReadySent) {
-        return originalRAF.call(window, function(timestamp) {
-          frameCount++;
-          if (frameCount >= RAF_FRAME_THRESHOLD && !gameReadySent) {
-            gameReadySent = true;
-            sendEvent('game_ready', {
-              frame_count: frameCount,
-              detected_at: Date.now()
-            });
-          }
-          callback(timestamp);
-        });
-      }
-      return originalRAF.call(window, callback);
-    };
-  }
-
-  // --- First User Interaction Detection ---
-
-  function setupFirstInteractionDetection() {
-    var events = ['touchstart', 'mousedown', 'keydown'];
-
-    function onFirstInteraction() {
-      if (firstInteractionSent) return;
-      firstInteractionSent = true;
-      sendEvent('user_interaction_start', null);
-
-      for (var i = 0; i < events.length; i++) {
-        document.removeEventListener(events[i], onFirstInteraction, true);
-      }
-    }
-
-    for (var i = 0; i < events.length; i++) {
-      document.addEventListener(events[i], onFirstInteraction, true);
-    }
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setupFirstInteractionDetection);
-  } else {
-    setupFirstInteractionDetection();
-  }
-
-  // --- Auto Error Capture ---
-
-  window.addEventListener('error', function(event) {
-    if (errorSent) return;
-    errorSent = true;
-    sendEvent('error', {
-      message: event.message || 'Unknown error',
-      source: event.filename || '',
-      lineno: event.lineno || 0,
-      colno: event.colno || 0,
-      auto_captured: true
-    });
-  });
-
-  window.addEventListener('unhandledrejection', function(event) {
-    if (errorSent) return;
-    errorSent = true;
-    var reason = event.reason;
-    sendEvent('error', {
-      message: (reason instanceof Error) ? reason.message : String(reason),
-      type: 'unhandled_promise_rejection',
-      auto_captured: true
-    });
-  });
-
-  // --- Public API ---
-
-  window.playablesSDK = {
-    complete: function(score) {
-      sendEvent('game_ended', {
-        score: score,
-        completed: true
-      });
-    },
-
-    error: function(message) {
-      if (errorSent) return;
-      errorSent = true;
-      sendEvent('error', {
-        message: message || 'Unknown error',
-        auto_captured: false
-      });
-    },
-
-    sendEvent: function(eventName, payload) {
-      if (!eventName || typeof eventName !== 'string') return;
-      sendEvent(eventName, payload);
-    }
-  };
-
-  // Kick off rAF detection in case no game code calls rAF immediately
-  if (originalRAF) {
-    originalRAF.call(window, onFrame);
-  }
-})();</script>
-<script>window.Intl=window.Intl||{};Intl.t=function(s){return(Intl._locale&&Intl._locale[s])||s;};</script>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>FLOW — Minimal Survival</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/lucide@latest"></script>
-<style>
-:root {
-  --white: #FFFFFF;
-  --gray-50: #F5F5F5;
-  --gray-100: #EAEAEA;
-  --black: #111111;
-  --dark: #333333;
-  --shadow: 0 8px 24px rgba(0,0,0,0.06);
-  --radius: 20px;
-}
-* { margin:0; padding:0; box-sizing:border-box; }
-html, body { height:100%; overflow:hidden; }
-body {
-  font-family:'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  background: var(--white);
-  color: var(--black);
-  -webkit-font-smoothing: antialiased;
-  transition: background 0.4s ease;
-  touch-action: none;
-}
-body.theme-gray { background: var(--gray-50); }
-
-.glass {
-  background: rgba(255,255,255,0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--gray-100);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-}
-
-.app { position:relative; width:100%; height:100%; }
-
-.top-bar {
-  position: fixed;
-  top: 20px; left: 50%;
-  transform: translateX(-50%);
-  width: min(720px, calc(100% - 32px));
-  display: flex; justify-content: space-between; align-items: flex-end;
-  padding: 18px 26px;
-  z-index: 20;
-  will-change: transform;
-}
-.top-bar.pulse { animation: beat 0.545s ease-in-out infinite; }
-@keyframes beat {
-  0%, 100% { transform: translateX(-50%) scale(1); }
-  50% { transform: translateX(-50%) scale(1.02); }
-}
-.label {
-  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
-  color: var(--dark); font-weight: 500; margin-bottom: 4px; opacity: 0.7;
-}
-.score {
-  font-size: 36px; font-weight: 600; letter-spacing: -0.02em; line-height: 1;
-  color: var(--black); font-variant-numeric: tabular-nums;
-}
-.combo-wrap { text-align: right; }
-.combo {
-  font-size: 26px; font-weight: 500; line-height: 1;
-  color: var(--dark); font-variant-numeric: tabular-nums; margin-top: 2px;
-  transition: opacity 0.3s;
-}
-
-.game-container {
-  position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  padding: 110px 16px 130px;
-}
-#game {
-  width: min(720px, 100%); height: 100%; max-height: 68vh;
-  background: var(--white);
-  border: 1px solid var(--gray-100);
-  border-radius: var(--radius);
-  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
-  display: block;
-  touch-action: none;
-}
-
-.controls {
-  position: fixed; bottom: 20px; left: 50%;
-  transform: translateX(-50%);
-  width: min(720px, calc(100% - 32px));
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 14px;
-  z-index: 20;
-}
-.btn {
-  appearance: none; border: none; background: transparent;
-  width: 44px; height: 44px; border-radius: 14px;
-  display: flex; align-items: center; justify-content: center;
-  color: var(--dark); cursor: pointer;
-  transition: all 0.3s ease; flex-shrink: 0;
-}
-.btn:hover { background: rgba(0,0,0,0.04); transform: scale(1.02); }
-.btn:active { transform: scale(0.98); }
-.btn.primary {
-  width: auto; padding: 0 18px; gap: 8px;
-  background: var(--black); color: var(--white);
-  font-size: 14px; font-weight: 500; letter-spacing: 0.01em;
-}
-.btn.primary:hover { background: var(--dark); }
-.btn svg { width: 18px; height: 18px; stroke-width: 1.75; }
-
-.separator { width: 1px; height: 24px; background: var(--gray-100); margin: 0 4px; }
-
-input[type=range] {
-  -webkit-appearance: none; width: 100px; height: 24px;
-  background: transparent; cursor: pointer;
-}
-input[type=range]::-webkit-slider-runnable-track {
-  height: 4px; background: var(--gray-100); border-radius: 2px;
-}
-input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 16px; height: 16px;
-  background: var(--black); border-radius: 50%; margin-top: -6px;
-  transition: transform 0.2s;
-}
-input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); }
-input[type=range]::-moz-range-track { height: 4px; background: var(--gray-100); border-radius: 2px; border: none; }
-input[type=range]::-moz-range-thumb { width: 16px; height: 16px; background: var(--black); border-radius: 50%; border: none; }
-
-.overlay {
-  position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  z-index: 30;
-  background: rgba(0,0,0,0.04);
-  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  opacity: 1; transition: opacity 0.3s ease; pointer-events: auto;
-}
-.overlay.hidden { opacity: 0; pointer-events: none; }
-
-.panel {
-  background: rgba(255,255,255,0.75);
-  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--gray-100);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 36px 40px;
-  width: min(340px, calc(100% - 48px));
-  text-align: center;
-}
-.panel h2 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 8px; color: var(--black); }
-.panel p { font-size: 14px; color: var(--dark); opacity: 0.8; line-height: 1.5; margin-bottom: 24px; }
-.panel .final-score { font-size: 48px; font-weight: 600; letter-spacing: -0.02em; margin: 12px 0 8px; color: var(--black); font-variant-numeric: tabular-nums; }
-.panel .btn-row { display: flex; gap: 10px; justify-content: center; margin-top: 8px; }
-.panel .btn { background: var(--gray-100); width: auto; padding: 0 18px; height: 40px; font-size: 14px; font-weight: 500; }
-.panel .btn.primary { background: var(--black); color: white; }
-
-.leader-list { text-align: left; margin: 20px 0 4px; }
-.leader-item {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 10px 0; border-bottom: 1px solid var(--gray-100); font-size: 14px;
-}
-.leader-item:last-child { border-bottom: none; }
-.leader-rank { color: var(--dark); opacity: 0.6; width: 24px; }
-.leader-score { font-variant-numeric: tabular-nums; font-weight: 500; }
-
-@media (max-width: 640px) {
-  .top-bar { padding: 14px 20px; top: 12px; }
-  .score { font-size: 30px; }
-  .combo { font-size: 22px; }
-  .controls { gap: 6px; padding: 10px 12px; bottom: 12px; }
-  input[type=range] { width: 70px; }
-  .panel { padding: 28px 24px; }
-  .game-container { padding: 90px 12px 110px; }
-}
-</style>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background: #ffffff; color: #1a1a1a; }
+        .rounded-card { border-radius: 12px; }
+        .video-js { width: 100%; border-radius: 12px; overflow: hidden; background-color: #000; }
+        .vjs-big-play-button { border-radius: 50% !important; width: 60px !important; height: 60px !important; line-height: 60px !important; margin-top: -30px !important; margin-left: -30px !important; background: rgba(0,0,0,0.8) !important; border: none !important; }
+        ::-webkit-scrollbar { width: 0; }
+        .ad-btn { transition: transform 0.2s; }
+        .ad-btn:active { transform: scale(0.95); }
+    </style>
 </head>
 <body>
-<div class="app">
-  <header class="top-bar glass" id="topBar">
-    <div class="score-wrap">
-      <div class="label">Score</div>
-      <div id="score" class="score">0</div>
-    </div>
-    <div class="combo-wrap">
-      <div class="label">Flow</div>
-      <div id="combo" class="combo">×1</div>
-    </div>
-  </header>
 
-  <main class="game-container">
-    <canvas id="game"></canvas>
-    
-    <div id="pauseOverlay" class="overlay hidden">
-      <div class="panel">
-        <h2>Paused</h2>
-        <p>Take a breath. Flow resumes when ready.</p>
-        <div class="btn-row">
-          <button id="resumeBtn" class="btn primary"><i data-lucide="play"></i> Resume</button>
+    <div id="app">
+        <!-- Landing Page -->
+        <div id="page-home" class="h-screen flex flex-col items-center justify-center p-6 text-center transition-all duration-500">
+            <div class="w-20 h-20 bg-black rounded-[20px] flex items-center justify-center text-white mb-6 shadow-2xl rotate-3">
+                <i data-lucide="zap" size="40"></i>
+            </div>
+            <h1 class="text-4xl font-black uppercase italic tracking-tighter mb-2">Hanime<span class="text-zinc-200">Flow</span></h1>
+            <p class="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.4em] mb-12">Encrypted Video Vault</p>
+            <button onclick="smartClick(() => showPage('main'))" class="w-full max-w-xs py-5 bg-black text-white rounded-full font-black uppercase tracking-widest shadow-xl">Enter Vault</button>
         </div>
-      </div>
-    </div>
 
-    <div id="gameOverOverlay" class="overlay hidden">
-      <div class="panel">
-        <h2>Flow Ended</h2>
-        <div class="final-score" id="finalScore">0</div>
-        <p id="finalMult">Best flow ×1</p>
-        <div class="leader-list" id="miniLeader"></div>
-        <div class="btn-row">
-          <button id="retryBtn" class="btn primary"><i data-lucide="rotate-ccw"></i> Retry</button>
+        <!-- Main Vault Page -->
+        <div id="page-main" class="hidden min-h-screen pb-24 animate-in fade-in duration-500">
+            <nav class="sticky top-0 z-[100] bg-white/90 backdrop-blur-md border-b border-zinc-100 px-6 py-4 flex justify-between items-center">
+                <div class="flex items-center gap-2" onclick="showPage('home')">
+                    <i data-lucide="zap" size="20"></i>
+                    <span class="font-black uppercase italic tracking-tighter">HanimeFlow</span>
+                </div>
+                <div class="flex gap-4">
+                    <button onclick="showPage('telegram')"><i data-lucide="send" class="text-zinc-400"></i></button>
+                    <button onclick="showPage('dmca')"><i data-lucide="info" class="text-zinc-400"></i></button>
+                </div>
+            </nav>
+
+            <!-- Banner Ad -->
+            <div class="p-4">
+                <div onclick="openSmartLink()" class="w-full h-20 bg-zinc-50 border border-dashed border-zinc-200 rounded-card flex items-center justify-center text-[10px] font-bold text-zinc-300 uppercase tracking-widest cursor-pointer">
+                    Promoted Content (SmartLink)
+                </div>
+            </div>
+
+            <!-- 2-Card Grid -->
+            <div id="grid-container" class="grid grid-cols-2 gap-3 px-4 py-2">
+                <!-- Data injected here -->
+            </div>
+
+            <!-- Pagination -->
+            <div class="flex justify-center items-center gap-6 py-10">
+                <button id="prev-btn" class="w-12 h-12 rounded-full border border-zinc-100 flex items-center justify-center disabled:opacity-20"><i data-lucide="chevron-left"></i></button>
+                <span id="page-num" class="text-xs font-black uppercase tracking-widest">01</span>
+                <button id="next-btn" class="w-12 h-12 rounded-full border border-zinc-100 flex items-center justify-center disabled:opacity-20"><i data-lucide="chevron-right"></i></button>
+            </div>
         </div>
-      </div>
-    </div>
 
-    <div id="leaderOverlay" class="overlay hidden">
-      <div class="panel">
-        <h2>Top Flows</h2>
-        <p>Your best 5 runs, saved locally.</p>
-        <div class="leader-list" id="fullLeader"></div>
-        <div class="btn-row">
-          <button id="closeLeader" class="btn">Close</button>
+        <!-- Video Player Overlay -->
+        <div id="page-player" class="hidden fixed inset-0 z-[2000] bg-white overflow-y-auto">
+            <div class="p-4 flex items-center justify-between sticky top-0 bg-white z-10">
+                <button onclick="closePlayer()" class="w-10 h-10 bg-zinc-100 rounded-full flex items-center justify-center"><i data-lucide="x"></i></button>
+                <span class="text-[9px] font-black uppercase text-zinc-400 tracking-widest">Private Server</span>
+            </div>
+            
+            <div class="px-4">
+                <div class="aspect-video bg-black rounded-card overflow-hidden mb-6 relative">
+                    <div id="pre-roll" class="absolute inset-0 z-20 bg-black flex flex-col items-center justify-center text-white text-[10px] font-bold uppercase tracking-widest hidden">
+                        Wait for Ad...
+                        <button onclick="skipPreRoll()" class="mt-4 px-6 py-2 border border-white/20 rounded-full">Skip Ad</button>
+                    </div>
+                    <video id="v-player" class="video-js vjs-big-play-centered" controls preload="auto"></video>
+                </div>
+                
+                <h2 id="v-title" class="text-2xl font-black uppercase italic tracking-tighter mb-4">Video Title</h2>
+                
+                <div onclick="openSmartLink()" class="w-full py-6 bg-zinc-900 text-white text-center rounded-card font-black uppercase tracking-widest mb-10">
+                    Download Mirror 4K
+                </div>
+                
+                <div class="text-[10px] text-zinc-400 leading-relaxed uppercase font-bold border-t border-zinc-100 pt-6">
+                    Note: Content is linked from third-party servers.
+                </div>
+            </div>
         </div>
-      </div>
+
+        <!-- Telegram Page -->
+        <div id="page-telegram" class="hidden min-h-screen p-6 bg-white">
+            <button onclick="showPage('main')" class="mb-8 w-10 h-10 bg-zinc-100 rounded-full flex items-center justify-center"><i data-lucide="arrow-left"></i></button>
+            <h2 class="text-3xl font-black uppercase italic mb-8">Telegram <span class="text-zinc-200">Links</span></h2>
+            <div id="tg-container" class="space-y-3"></div>
+        </div>
+
+        <!-- DMCA Page -->
+        <div id="page-dmca" class="hidden min-h-screen p-8">
+            <button onclick="showPage('main')" class="mb-8 flex items-center gap-2 text-[10px] font-black uppercase text-zinc-400"><i data-lucide="arrow-left" size="14"></i> Back</button>
+            <h2 class="text-3xl font-black uppercase italic mb-6">DMCA</h2>
+            <div class="text-xs text-zinc-500 space-y-4 uppercase font-bold leading-loose">
+                <p>HanimeFlow is a search engine and does not host any files.</p>
+                <p>If you find any infringing content, please contact the hosting provider directly.</p>
+            </div>
+        </div>
     </div>
-  </main>
 
-  <footer class="controls glass">
-    <button id="playBtn" class="btn primary"><i data-lucide="play"></i><span>Play</span></button>
-    <button id="restartBtn" class="btn" aria-label="Restart"><i data-lucide="rotate-ccw"></i></button>
-    <div class="separator"></div>
-    <button id="audioBtn" class="btn" aria-label="Audio"><i data-lucide="volume-x"></i></button>
-    <input id="volume" type="range" min="0" max="100" value="20" aria-label="Volume">
-    <div class="separator"></div>
-    <button id="themeBtn" class="btn" aria-label="Theme"><i data-lucide="contrast"></i></button>
-    <button id="leaderBtn" class="btn" aria-label="Leaderboard"><i data-lucide="trophy"></i></button>
-  </footer>
-</div>
+    <script>
+        let db = null;
+        let currentPage = 1;
+        const perPage = 12;
+        let adCount = 0;
+        let player = null;
 
-<script>
-// FLOW - Minimal Survival
-class AudioManager {
-  constructor() {
-    this.ctx = null; this.master = null; this.playing = false;
-    this.volume = 0.2; this.osc1 = null; this.osc2 = null;
-  }
-  init() {
-    if (this.ctx) return;
-    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    this.master = this.ctx.createGain();
-    this.master.gain.value = this.volume * 0.3;
-    this.master.connect(this.ctx.destination);
-  }
-  startPad() {
-    this.init();
-    if (this.playing) return;
-    if (this.ctx.state === 'suspended') this.ctx.resume();
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'lowpass'; filter.frequency.value = 820; filter.Q.value = 0.7;
-    filter.connect(this.master);
-    const padGain = this.ctx.createGain(); padGain.gain.value = 0; padGain.connect(filter);
-    padGain.gain.linearRampToValueAtTime(0.035, this.ctx.currentTime + 1.4);
-    this.osc1 = this.ctx.createOscillator(); this.osc1.type = 'sine'; this.osc1.frequency.value = 220; this.osc1.connect(padGain);
-    this.osc2 = this.ctx.createOscillator(); this.osc2.type = 'sine'; this.osc2.frequency.value = 329.63; this.osc2.detune.value = -5;
-    const g2 = this.ctx.createGain(); g2.gain.value = 0.55; this.osc2.connect(g2); g2.connect(padGain);
-    this.osc1.start(); this.osc2.start();
-    this.padGain = padGain; this.playing = true;
-    this.startBeat();
-  }
-  stopPad() {
-    if (!this.playing) return;
-    this.padGain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.35);
-    setTimeout(() => { try { this.osc1.stop(); this.osc2.stop(); } catch {} }, 400);
-    this.playing = false; this.stopBeat();
-  }
-  toggle() { if (this.playing) this.stopPad(); else this.startPad(); return this.playing; }
-  setVolume(v) { this.volume = v/100; if (this.master) this.master.gain.linearRampToValueAtTime(this.volume * 0.3, this.ctx.currentTime + 0.05); }
-  playClick() {
-    this.init(); const o = this.ctx.createOscillator(); const g = this.ctx.createGain();
-    o.type='sine'; o.frequency.value=800; o.frequency.exponentialRampToValueAtTime(620, this.ctx.currentTime+0.07);
-    g.gain.value=0; g.gain.linearRampToValueAtTime(0.07*this.volume, this.ctx.currentTime+0.01);
-    g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime+0.09);
-    o.connect(g); g.connect(this.master); o.start(); o.stop(this.ctx.currentTime+0.1);
-  }
-  playHit() {
-    this.init(); const o = this.ctx.createOscillator(); const g = this.ctx.createGain();
-    o.type='triangle'; o.frequency.value=120; o.frequency.exponentialRampToValueAtTime(58, this.ctx.currentTime+0.22);
-    g.gain.value=0; g.gain.linearRampToValueAtTime(0.16*this.volume, this.ctx.currentTime+0.01);
-    g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime+0.26);
-    o.connect(g); g.connect(this.master); o.start(); o.stop(this.ctx.currentTime+0.27);
-  }
-  startBeat() { document.getElementById('topBar').classList.add('pulse'); }
-  stopBeat() { document.getElementById('topBar').classList.remove('pulse'); }
-}
+        // Ad Logic: First click = SmartLink, Second click = Action
+        function smartClick(action) {
+            if (adCount === 0) {
+                adCount = 1;
+                window.open(db.smartlink, '_blank');
+            } else {
+                adCount = 0; // Reset for next time
+                action();
+            }
+        }
 
-class Player {
-  constructor() { this.radius = 9; this.x = 0; this.y = 0; this.targetX = 0; this.vx = 0; }
-  reset(w, h) { this.x = w/2; this.targetX = w/2; this.y = h - 42; this.vx = 0; }
-  update(delta, bounds) {
-    this.vx += (this.targetX - this.x) * 0.18;
-    this.vx *= 0.82;
-    this.x += this.vx * (delta/16);
-    const min = this.radius + 8, max = bounds.width - this.radius - 8;
-    this.x = Math.max(min, Math.min(max, this.x));
-    this.targetX = Math.max(min, Math.min(max, this.targetX));
-  }
-  draw(ctx) {
-    ctx.save();
-    ctx.fillStyle = '#111111';
-    ctx.shadowColor = 'rgba(0,0,0,0.08)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 4;
-    ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2); ctx.fill();
-    ctx.restore();
-  }
-}
+        function openSmartLink() {
+            window.open(db.smartlink, '_blank');
+        }
 
-class Obstacle {
-  constructor(x, y, w, h, speed) { this.x=x; this.y=y; this.w=w; this.h=h; this.speed=speed; this.near=false; }
-  update(delta) { this.y += this.speed * (delta/16); }
-  draw(ctx) {
-    ctx.save();
-    ctx.fillStyle = '#EAEAEA'; ctx.strokeStyle = '#333333'; ctx.lineWidth = 1;
-    ctx.beginPath();
-    const r = 10;
-    if (ctx.roundRect) { ctx.roundRect(this.x, this.y, this.w, this.h, r); }
-    else { ctx.rect(this.x, this.y, this.w, this.h); }
-    ctx.fill(); ctx.stroke();
-    ctx.restore();
-  }
-  collides(p) {
-    const cx = Math.max(this.x, Math.min(p.x, this.x + this.w));
-    const cy = Math.max(this.y, Math.min(p.y, this.y + this.h));
-    const dx = p.x - cx, dy = p.y - cy;
-    return (dx*dx + dy*dy) < (p.radius * p.radius);
-  }
-  checkNear(p) {
-    if (this.near) return false;
-    const centerX = this.x + this.w/2;
-    const distX = Math.abs(p.x - centerX);
-    const threshold = this.w/2 + p.radius + 18;
-    const vertical = Math.abs((this.y + this.h/2) - p.y) < 36;
-    if (distX < threshold && distX > this.w/2 + p.radius - 1 && vertical && this.y < p.y && this.y + this.h > p.y - 30) {
-      this.near = true; return true;
-    }
-    return false;
-  }
-}
+        async function init() {
+            // Hum real environment mein local data.json fetch karenge
+            try {
+                // Testing ke liye hum data hardcode bhi kar sakte hain ya fetch
+                const res = await fetch('data.json');
+                db = await res.json();
+                renderGrid();
+                renderTelegram();
+            } catch (e) {
+                console.error("JSON Error: Make sure data.json exists in the same folder");
+            }
+            lucide.createIcons();
+        }
 
-class Game {
-  constructor(canvas) {
-    this.canvas = canvas; this.ctx = canvas.getContext('2d');
-    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
-    this.width = 0; this.height = 0;
-    this.player = new Player();
-    this.obstacles = []; this.particles = [];
-    this.running = false; this.paused = false; this.over = false;
-    this.score = 0; this.displayScore = 0; this.combo = 0; this.multiplier = 1;
-    this.time = 0; this.speed = 2.2; this.lastSpawn = 0; this.spawnRate = 900;
-    this.shake = 0; this.lastTime = 0;
-    this.audio = null; this.ui = null;
-    this.resize(); window.addEventListener('resize', () => this.resize());
-    this.bindInput(); this.loop(0);
-  }
-  setAudio(a){ this.audio = a; }
-  setUI(u){ this.ui = u; }
-  resize() {
-    const r = this.canvas.getBoundingClientRect();
-    this.width = r.width; this.height = r.height;
-    this.canvas.width = this.width * this.dpr; this.canvas.height = this.height * this.dpr;
-    this.ctx.setTransform(this.dpr,0,0,this.dpr,0,0);
-    this.player.reset(this.width, this.height);
-  }
-  bindInput() {
-    const set = (x) => {
-      const rect = this.canvas.getBoundingClientRect();
-      this.player.targetX = (x - rect.left) * (this.width / rect.width);
-    };
-    this.canvas.addEventListener('pointerdown', e => { set(e.clientX); this.canvas.setPointerCapture(e.pointerId); });
-    this.canvas.addEventListener('pointermove', e => { if (
+        function showPage(id) {
+            document.querySelectorAll('#app > div').forEach(d => d.classList.add('hidden'));
+            document.getElementById(`page-${id}`).classList.remove('hidden');
+            window.scrollTo(0,0);
+        }
+
+        function renderGrid() {
+            const container = document.getElementById('grid-container');
+            container.innerHTML = '';
+            
+            const start = (currentPage - 1) * perPage;
+            const end = start + perPage;
+            const items = db.vault.slice(start, end);
+
+            items.forEach(item => {
+                const card = document.createElement('div');
+                card.className = "cursor-pointer group";
+                card.onclick = () => smartClick(() => startPlayer(item));
+                card.innerHTML = `
+                    <div class="relative aspect-[2/3] bg-zinc-100 rounded-card overflow-hidden mb-2">
+                        <img src="${item.thumb}" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black/10 group-active:bg-black/40 transition-colors"></div>
+                    </div>
+                    <h3 class="text-[10px] font-black uppercase italic leading-tight truncate">${item.title}</h3>
+                `;
+                container.appendChild(card);
+            });
+
+            document.getElementById('page-num').innerText = currentPage.toString().padStart(2, '0');
+            document.getElementById('prev-btn').disabled = currentPage === 1;
+            document.getElementById('next-btn').disabled = end >= db.vault.length;
+        }
+
+        function renderTelegram() {
+            const container = document.getElementById('tg-container');
+            container.innerHTML = '';
+            db.telegram.forEach(tg => {
+                const btn = document.createElement('div');
+                btn.className = "flex items-center justify-between p-5 border border-zinc-100 rounded-card";
+                btn.onclick = () => window.open(tg.link, '_blank');
+                btn.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="${tg.icon}"></i>
+                        <span class="text-sm font-black uppercase italic tracking-tighter">${tg.name}</span>
+                    </div>
+                    <i data-lucide="arrow-right" size="14" class="text-zinc-200"></i>
+                `;
+                container.appendChild(btn);
+            });
+            lucide.createIcons();
+        }
+
+        function startPlayer(item) {
+            document.getElementById('v-title').innerText = item.title;
+            showPage('player');
+            
+            const preRoll = document.getElementById('pre-roll');
+            preRoll.classList.remove('hidden');
+
+            if (!player) {
+                player = videojs('v-player', { fluid: true, playbackRates: [0.5, 1, 1.5, 2] });
+            }
+            player.src({ type: 'video/mp4', src: item.video });
+            
+            setTimeout(() => {
+                preRoll.classList.add('hidden');
+                player.play();
+            }, 3000);
+        }
+
+        function skipPreRoll() {
+            document.getElementById('pre-roll').classList.add('hidden');
+            player.play();
+        }
+
+        function closePlayer() {
+            if(player) player.pause();
+            showPage('main');
+        }
+
+        document.getElementById('next-btn').onclick = () => { currentPage++; renderGrid(); };
+        document.getElementById('prev-btn').onclick = () => { currentPage--; renderGrid(); };
+
+        init();
+    </script>
+</body>
+</html>
+
+```
+                      
